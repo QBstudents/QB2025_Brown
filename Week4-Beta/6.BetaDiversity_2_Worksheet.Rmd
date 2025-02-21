@@ -306,6 +306,70 @@ water.matrix <- as.matrix(fish_data[, 5:9])
 fishdbrda <- dbrda(species.db ~ ., as.data.frame(water.matrix))
 ordiplot(fishdbrda)
 
+#Second Ordination Plot
+
+fish.data.env <- fish_data[, 5:9]
+colnames(fish.data.env) <- c("temp", "cond", "pH", "NO3", "P")
+
+#Permutation test done inbetween to get just temp,ph,no3,p
+
+only.species <- fish_datanew[, 7:642]
+species.db <- vegdist(only.species, method = "bray", upper = TRUE, dig = TRUE)
+fish.team.dbrda <- dbrda(species.db ~ ., as.data.frame(fish.data.env))
+ordiplot(fishdbrda)
+
+fish.data.env <- fish.data.env[, c(1, 3, 4, 5)]
+fish.data.env <- na.omit(fish.data.env)
+
+fish.team.dbrda <- dbrda(species.db ~ ., as.data.frame(fish.data.env))
+
+envfit(fish.team.dbrda, fish.data.env, perm = 999)
+fish.dbrda.explainvar1 <- round(fish.team.dbrda$CCA$eig[1] /
+                             sum(c(fish.team.dbrda$CCA$eig, fish.team.dbrda$CA$eig)), 3)*100
+fish.dbrda.explainvar2 <- round(fish.team.dbrda$CCA$eig[2] /
+                             sum(c(fish.team.dbrda$CCA$eig, fish.team.dbrda$CA$eig)), 3)*100
+par(mar = c(5, 5, 4, 4) + 0.1)
+plot(scores(fish.team.dbrda, display = "wa"),
+     xlab = paste("dbRDA 1 (", fish.dbrda.explainvar1, "%)",
+     sep = ""), ylab = paste("dbRDA 2 (", fish.dbrda.explainvar2, "%)", sep = ""),
+     pch = 16, cex = 2.0, tyep = "n", cex.lab = 1.5, col = "gray",
+     cex.axis = 1.2, axe = FALSE)
+
+axis(side = 1, labels = T, lwd.ticks = 2, cex.axis = 1.2, las = 1)
+axis(side = 2, labels = T, lwd.ticks = 2, cex.axis = 1.2, las = 1)
+abline(h = 0, v = 0, lty = 3)
+box(lwd = 2)
+
+points(scores(fish.team.dbrda, display = "wa"),
+       pch = 10, cex = 1, bg = "gray", col = "gray")
+text(scores(fish.team.dbrda, display = "wa"),
+     labels = row.names(scores(fish.team.dbrda, display = "wa")), cex = 0.5)
+
+
+vectors <- scores(fish.team.dbrda, display = "bp")
+arrows(0, 0, vectors[, 1], vectors[, 2],
+       lwd = 2, lty = 1, length = 0.2, col = "red")
+text(vectors[,1], vectors[,2], pos = 3,
+     label = row.names(vectors), col = "white", cex = 1 )
+axis(side = 3, lwd.ticks = 2, cex.axis = 1.2, las = 1, col = "red", ld = 2,2,
+     at = pretty(range(vectors[, 1])) * 2, labels = pretty(range(vectors[,1])))
+
+axis(side = 4, lwd.ticks = 2, cex.axis = 1.2, las = 1, col = "red", ld = 2,2,
+     at = pretty(range(vectors[, 2])) * 2, labels = pretty(range(vectors[,2])))
+
 ```
+
+```{r}
+# Creating matrix for venn diagram
+
+fish.data.env.mod <- model.matrix(~ temp + NO3 + P + pH, as.data.frame(fish.data.env))[, -1]
+
+fish.team.rs <- rowSums(only.species)/sum(only.species)
+fish.team.pcnmw <- pcnm(dist(fish_data[ ,2:3]), w = fish.team.rs, dist.ret = T)
+
+fish.team.pcnmw$values > 0
+
+```
+
 
 > ***Synthesis Answer***: The ordination plot above indicates that water temperature and pH have a stronger impact on the fish communities. The long arrow lengths are what indicate a strong relationship. There are other water characteristics in this plot including conductivity and the concentration of nitrate and phosphorus. However, given that the length of those arrows are much shorter, that implies that they do not have as strong of an impact on the fish communities. The plot is somewhat difficult to interpret due to the vast number of plotted points. Further data organization will be necessary to try to condense some of the data sites, given the difficulty of plotting over 2000 sites.
