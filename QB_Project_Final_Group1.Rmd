@@ -2,6 +2,7 @@
 title: "QB_Project_Group1"
 output: pdf_document
 date: "2025-03-02"
+
 ---
 
 ```{r setup, include=FALSE}
@@ -54,22 +55,28 @@ fish_data$Lat_Zone <- recode(fish_data$Lat_Zone,
           "Two" = 1, "Three" = 2, "Four" = 3, 
           "Five" = 4, "Six" = 5, "Seven" = 6, "Eight" = 7)
 
-region_colors <- colorFactor(palette = "Set1", domain = fish_data$Lat_Zone)
 
-leaflet(data = fish_data) %>%
-  addTiles() %>%
-  addCircleMarkers(lng = lons, lat = lats, 
-                   color = ~region_colors(Lat_Zone),
-                   radius = 5, fillOpacity = 0.8,
-                   popup = ~paste("Region:", Lat_Zone, "<br>Lat:", lats, "<br>Lon:", lons)) %>%
-  addLegend("bottomright", pal = region_colors, values = fish_data$Lat_Zone,
-            title = "Regions")
+us_map <- map_data("state")
+
+region_colors <- c("1" = "red", "2" = "blue", "3" = "green", 
+                   "4" = "purple", "5" = "orange", "6" = "yellow", 
+                   "7" = "pink")
+
+ggplot() +
+  geom_map(data = us_map, map = us_map, aes(x = long, y = lat, map_id = region), 
+           color = "black", fill = "lightgray", size = 0.2) +  # Map of the US
+  geom_point(data = fish_data, aes(x = Longitude, y = Latitude, color = as.factor(Lat_Zone)), 
+             size = 3) +
+  scale_color_manual(values = region_colors) + 
+  theme_minimal() +
+  labs(title = "Fish Data Distribution on US Map", x = "Longitude", y = "Latitude") +
+  theme(legend.position = "bottom")
 
 ```
 
 ```{r}
 # Observed species richness for each zone
-fish_data
+#fish_data
 
 site <- fish_data$SiteID
 site
@@ -334,7 +341,7 @@ explainvar1 <- round(fish.pcoa$eig[1] / sum(fish.pcoa$eig), 3) * 100
 explainvar2 <- round(fish.pcoa$eig[2] / sum(fish.pcoa$eig), 3) * 100
 explainvar3 <- round(fish.pcoa$eig[3] / sum(fish.pcoa$eig), 3) * 100
 par(mar = c(5, 5, 1, 2) + 0.1)
-plot(fish.pcoa$points[ ,1], fish.pcoa$points[ ,2],
+plot(fish.pcoa$points[ ,1], fish.pcoa$points[ ,2], ylim = c(-0.2, 0.7),
      xlab = paste("PcoA 1 (", explainvar1, "%)", sep = ""),
      ylab = paste("PcoA 2 (", explainvar2, "%)", sep = ""),
      pch = 16, cex = 2.0, type = "n", cex.lab = 1.5,
@@ -355,7 +362,6 @@ for(i in 1:nrow(species_1)){
 fish.pcoa <- add.spec.scores.class(fish.pcoa,fishREL,method = "pcoa.scores")
 text(fish.pcoa$cproj[ ,1], fish.pcoa$cproj[ ,2],
      labels = row.names(fish.pcoa$cproj), col = "black")
-
 
 ```
 
