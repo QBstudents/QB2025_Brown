@@ -1,0 +1,434 @@
+---
+title: "QB_Project_Group1"
+output: pdf_document
+date: "2025-03-02"
+
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r}
+library(vegan)
+library(gplots)
+library(maps)
+library(mapdata)
+library(ggplot2)
+library(leaflet)
+library(dplyr)
+library(RColorBrewer)
+library(pheatmap)
+
+```
+
+```{r}
+# World map for data collection sites
+fish_data <- read.csv("/cloud/project/QB2025_Brown/Fish_Dataset.csv")
+
+fish_data <- na.omit(fish_data)
+
+lats <- as.numeric(fish_data[, 2])
+lons <- as.numeric(fish_data[, 3])
+
+map_data <- data.frame(long = lons, lat = lats)
+
+world_map <- map_data("world")
+
+ggplot() +
+  geom_polygon(data = world_map, aes(x = long, y = lat, group = group), 
+               fill = "lightgray", color = "black") +
+  geom_point(data = map_data, aes(x = long, y = lat), 
+             color = "red", size = 2) +
+  theme_minimal() +
+  labs(title = "Fish Data Collection Sites",
+       x = "Longitude", y = "Latitude")
+
+
+fish_data$Lat_Zone <- recode(fish_data$Lat_Zone, 
+          "Two" = 1, "Three" = 2, "Four" = 3, 
+          "Five" = 4, "Six" = 5, "Seven" = 6, "Eight" = 7)
+
+
+us_map <- map_data("state")
+
+region_colors <- c("1" = "red", "2" = "blue", "3" = "green", 
+                   "4" = "purple", "5" = "orange", "6" = "yellow", 
+                   "7" = "pink")
+
+ggplot() +
+  geom_map(data = us_map, map = us_map, aes(x = long, y = lat, map_id = region), 
+           color = "black", fill = "lightgray", size = 0.2) +  # Map of the US
+  geom_point(data = fish_data, aes(x = Longitude, y = Latitude, color = as.factor(Lat_Zone)), 
+             size = 3) +
+  scale_color_manual(values = region_colors) + 
+  theme_minimal() +
+  labs(title = "Fish Data Distribution on US Map", x = "Longitude", y = "Latitude") +
+  theme(legend.position = "bottom")
+
+```
+
+```{r}
+# Observed species richness for each zone
+#fish_data
+
+site <- fish_data$SiteID
+site
+
+species <- fish_data[ ,22:658]
+
+
+print(fish_data$Lat_Zone)
+fish_data$Lat_Zone <- recode(fish_data$Lat_Zone, 
+          "Two" = 1, "Three" = 2, "Four" = 3, 
+          "Five" = 4, "Six" = 5, "Seven" = 6, "Eight" = 7)
+as.numeric(fish_data$Lat_Zone)
+
+S.obs <- function(x = ""){
+  rowSums(x > 0) * 1 
+}
+
+lat1 <- subset(species, Lat_Zone == 1)
+richness1 <- S.obs(lat1)
+lat2 <- subset(species, Lat_Zone == 2)
+richness2 <-S.obs(lat2)
+lat3 <- subset(species, Lat_Zone == 3)
+richness3 <-S.obs(lat3)
+lat4 <- subset(species, Lat_Zone == 4)
+richness4 <-S.obs(lat4)
+lat5 <- subset(species, Lat_Zone == 5)
+richness5 <-S.obs(lat5)
+lat6 <- subset(species, Lat_Zone == 6)
+richness6 <-S.obs(lat6)
+lat7 <- subset(species, Lat_Zone == 7)
+richness7 <-S.obs(lat7)
+
+richness_df <- data.frame(
+  Lat_Zone = factor(1:7),  # Convert to factor for discrete x-axis
+  Observed_Richness = c(richness1, richness2, richness3, richness4, richness5, richness6, richness7)
+)
+
+
+ggplot(richness_df, aes(x = Lat_Zone, y = Observed_Richness, fill = Lat_Zone)) +
+  geom_boxplot() +
+  labs(x = "Lat_Zone", y = "Observed Richness", title = "Species Richness by Latitudinal Zone") + 
+  theme_minimal() + 
+  scale_fill_brewer(palette = "Set3")
+```
+
+```{r}
+#Shannon's Diversity for each zone
+
+ShanH <- function(x = ""){
+  H = 0
+  for (n_i in x){
+    if(n_i > 0) {
+      p = n_i / sum(x)
+      H = H - p*log(p)
+    }
+  }
+  return(H)
+}
+
+diversity(lat1, index = "shannon")
+
+Shan1 <- diversity(lat1, index = "shannon")
+Shan2 <- diversity(lat2, index = "shannon")
+Shan3 <- diversity(lat3, index = "shannon")
+Shan4 <- diversity(lat4, index = "shannon")
+Shan5 <- diversity(lat5, index = "shannon")
+Shan6 <- diversity(lat6, index = "shannon")
+Shan7 <- diversity(lat7, index = "shannon")
+
+
+Shan_df <- data.frame(
+  Lat_Zone = factor(1:7),  
+  Shannon_div = c(Shan1, Shan2, Shan3, Shan4, Shan5, Shan6, Shan7)
+)
+
+
+ggplot(Shan_df, aes(x = Lat_Zone, y = Shannon_div, fill = Lat_Zone)) +
+  geom_boxplot() +
+  labs(
+    x = "Latitudinal Zone",
+    y = "Shannon Diversity",
+    title = "Shannon's Diversity by Latitudinal Zone"
+  ) + 
+  theme_minimal() + 
+  scale_fill_brewer(palette = "Set3")
+
+```
+
+```{r}
+#Simpson's Diversity of each zone
+
+SimpD <- function(x = ""){
+  D = 0
+  N = sum(x)
+  for (n_i in x){
+    D = D + (n_i^2)/(N^2)
+  }
+  return(D)
+}
+
+D.inv <- 1/SimpD(lat1)
+
+Simp1 <- diversity(lat1, index = "inv")
+Simp2 <- diversity(lat2, index = "inv")
+Simp3 <- diversity(lat3, index = "inv")
+Simp4 <- diversity(lat4, index = "inv")
+Simp5 <- diversity(lat5, index = "inv")
+Simp6 <- diversity(lat6, index = "inv")
+Simp7 <- diversity(lat7, index = "inv")
+
+
+Simp_df <- data.frame(
+  Lat_Zone = factor(1:7),  
+  Simp_div = c(Simp1, Simp2, Simp3, Simp4, Simp5, Simp6, Simp7)
+)
+
+
+ggplot(Simp_df, aes(x = Lat_Zone, y = Simp_div, fill = Lat_Zone)) +
+  geom_boxplot() +
+  labs(
+    x = "Latitudinal Zone",
+    y = "Simpson's Diversity",
+    title = "Simpsons's Diversity by Latitudinal Zone"
+  ) + 
+  theme_minimal() + 
+  scale_fill_brewer(palette = "Set3")
+
+```
+
+```{r}
+#Beta Diversity- Heatmap
+
+library(lattice)
+library(viridis)
+
+as.numeric(fish_data$Lat_Zone)
+set.seed(123)
+
+fish_data_lat_fix <- fish_data %>%
+  group_by(Lat_Zone) %>%
+  mutate(SiteID = sample(
+    seq((unique(Lat_Zone) - 1) * 50 + 1, unique(Lat_Zone) * 50), 
+    size = n(),  
+    replace = FALSE  
+  )) %>%
+  ungroup()
+
+
+result <- cbind(fish_data_lat_fix[, 1], fish_data_lat_fix[, 23:658])
+
+result.db <- vegdist(result, method = "bray", upper = TRUE, diag = TRUE)
+result.db.mat <- as.matrix(result.db)
+
+order1 <- rev(rownames(result.db.mat))
+
+zone_labels <- rep(1:7, each = 50)
+
+zone_boundaries <- seq(50, 350, by = 50)
+
+levelplot(result.db.mat[order1, order1], 
+          aspect = "iso", 
+          col.regions = viridis::inferno(256), 
+          xlab = "Latitude Group", 
+          ylab = "Latitude Group", 
+          scales = list(cex = 0.1), 
+          main = "Bray-Curtis Distance",
+          panel = function(...) {
+            panel.levelplot(...)
+            for (boundary in zone_boundaries) {
+              panel.abline(h = boundary, col = "white", lwd = 2)
+              panel.abline(v = boundary, col = "white", lwd = 2)
+            }
+          })
+
+
+```
+
+```{r}
+# Beta Diversity Dispersion
+
+result.db <- vegdist(result, method = "bray", upper = TRUE, diag = TRUE)
+
+betadisper_result <- betadisper(result.db, group = fish_data_lat_fix$Lat_Zone)
+
+boxplot(betadisper_result, 
+        main = "Beta Diversity Dispersion by Latitudinal Zone", 
+        xlab = "Latitudinal Zones", 
+        ylab = "Beta Diversity Dispersion")
+
+
+permanova_result <- adonis2(result.db ~ fish_data_lat_fix$Lat_Zone, method = "bray")
+summary(permanova_result)
+
+```
+```{r}
+# Influential Species
+
+add.spec.scores.class <-
+  function(ordi,comm,method="cor.scores",multi=1,Rscale=F,scaling="1") {
+    ordiscores <- scores(ordi,display="sites")
+    n <- ncol(comm)
+    p <- ncol(ordiscores)
+    specscores <- array(NA,dim=c(n,p))
+    rownames(specscores) <- colnames(comm)
+    colnames(specscores) <- colnames(ordiscores)
+    if (method == "cor.scores") {
+      for (i in 1:n) {
+        for (j in 1:p) {specscores[i,j] <- cor(comm[,i],ordiscores[,j],method="pearson")}
+      }
+    }
+    if (method == "wa.scores") {specscores <- wascores(ordiscores,comm)}
+    if (method == "pcoa.scores") {
+      rownames(ordiscores) <- rownames(comm)
+      eigenv <- ordi$eig
+      accounted <- sum(eigenv)
+      tot <- 2*(accounted/ordi$GOF[2])-(accounted/ordi$GOF[1])
+      eigen.var <- eigenv/(nrow(comm)-1)
+      neg <- length(eigenv[eigenv<0])
+      pos <- length(eigenv[eigenv>0])
+      tot <- tot/(nrow(comm)-1)
+      eigen.percen <- 100*eigen.var/tot
+      eigen.cumpercen <- cumsum(eigen.percen)
+      constant <- ((nrow(comm)-1)*tot)^0.25
+      ordiscores <- ordiscores * (nrow(comm)-1)^-0.5 * tot^-0.5 * constant
+      p1 <- min(p, pos)
+      for (i in 1:n) {
+        for (j in 1:p1) {
+          specscores[i,j] <- cor(comm[,i],ordiscores[,j])*sd(comm[,i])/sd(ordiscores[,j])
+          if(is.na(specscores[i,j])) {specscores[i,j]<-0}
+        }
+      }
+      if (Rscale==T && scaling=="2") {
+        percen <- eigen.var/tot
+        percen <- percen^0.5
+        ordiscores <- sweep(ordiscores,2,percen,"/")   
+        specscores <- sweep(specscores,2,percen,"*")
+      }
+      if (Rscale==F) {
+        specscores <- specscores / constant
+        ordiscores <- ordi$points
+      }        
+      ordi$points <- ordiscores
+      ordi$eig <- eigen.var
+      ordi$eig.percen <- eigen.percen
+      ordi$eig.cumpercen <- eigen.cumpercen
+      ordi$eigen.total <- tot
+      ordi$R.constant <- constant
+      ordi$Rscale <- Rscale
+      ordi$scaling <- scaling
+    }
+    specscores <- specscores * multi    
+    ordi$cproj <- specscores
+    return(ordi)
+  }
+
+
+species_1 <- species[, -1]
+
+
+fish.pcoa <- cmdscale(result.db, eig = TRUE, k = 3)
+explainvar1 <- round(fish.pcoa$eig[1] / sum(fish.pcoa$eig), 3) * 100
+explainvar2 <- round(fish.pcoa$eig[2] / sum(fish.pcoa$eig), 3) * 100
+explainvar3 <- round(fish.pcoa$eig[3] / sum(fish.pcoa$eig), 3) * 100
+par(mar = c(5, 5, 1, 2) + 0.1)
+plot(fish.pcoa$points[ ,1], fish.pcoa$points[ ,2], ylim = c(-0.2, 0.7),
+     xlab = paste("PcoA 1 (", explainvar1, "%)", sep = ""),
+     ylab = paste("PcoA 2 (", explainvar2, "%)", sep = ""),
+     pch = 16, cex = 2.0, type = "n", cex.lab = 1.5,
+     cex.axis = 1.2, axes = FALSE)
+axis(side = 1, labels = T, lwd.ticks = 2, cex.axis = 1.2, las = 1)
+axis(side = 2, labels = T, lwd.ticks = 2, cex.axis = 1.2, las = 1)
+abline(h = 0, v = 0, lty = 3)
+box(lwd = 2)
+points(fish.pcoa$points[ ,1], fish.pcoa$points[ ,2],
+       pch = 19, cex = 3, bg = "gray", col = "gray")
+text(fish.pcoa$points[ ,1], fish.pcoa$points[ ,2],
+     labels = row.names(fish.pcoa$points))
+
+fishREL <- species_1
+for(i in 1:nrow(species_1)){
+  fishREL[i, ] = species_1[i, ] / sum(species_1[i, ])
+}
+fish.pcoa <- add.spec.scores.class(fish.pcoa,fishREL,method = "pcoa.scores")
+text(fish.pcoa$cproj[ ,1], fish.pcoa$cproj[ ,2],
+     labels = row.names(fish.pcoa$cproj), col = "black")
+
+```
+
+```{r}
+# Constrained Ordination Plot
+
+env.chem <- cbind(fish_data_lat_fix[, 2:3], fish_data_lat_fix[, 5:20])
+
+
+fish.dbrda <- dbrda(result.db ~., as.data.frame(env.chem))
+ordiplot(fish.dbrda)
+
+
+fish.dbrda.mod0 <- dbrda(result.db ~ 1, as.data.frame(env.chem))
+ordiplot(fish.dbrda.mod0)
+fish.dbrda.mod1 <- dbrda(result.db ~., as.data.frame(env.chem))
+fish.dbrda <- ordiR2step(fish.dbrda.mod0, fish.dbrda.mod1, perm.max = 200)
+fish.dbrda$call
+fish.dbrda$anova
+
+
+ordiplot(fish.dbrda)
+
+
+permutest(fish.dbrda, permutations = 999)
+
+
+fish.team.env <- env.chem[, c(1, 2, 4, 7, 9, 11)]
+fish.team.db <- dbrda(result.db ~ ., as.data.frame(fish.team.env))
+
+envfit(fish.team.db, fish.team.env, perm = 999)
+
+
+dbrda.explainvar1 <- round(fish.team.db$CCA$eig[1] /
+                             sum(c(fish.team.db$CCA$eig, fish.team.db$CA$eig)), 3)*100
+dbrda.explainvar2 <- round(fish.team.db$CCA$eig[2] /
+                             sum(c(fish.team.db$CCA$eig, fish.team.db$CA$eig)), 3)*100
+
+par(mar = c(5, 5, 4, 4) + 0.1)
+plot(scores(fish.team.db, display = "wa"),
+     xlab = paste("dbRDA 1 (", dbrda.explainvar1, "%)",
+                                       sep = ""), ylab = paste("dbRDA 2 (", dbrda.explainvar2, "%)", sep = ""),
+     pch = 16, cex = 2.0, type = "n", cex.lab = 1.5,
+     cex.axis = 1.2, axe = FALSE)
+
+axis(side = 1, labels = T, lwd.ticks = 2, cex.axis = 1.2, las = 1)
+axis(side = 2, labels = T, lwd.ticks = 2, cex.axis = 1.2, las = 1)
+abline(h = 0, v = 0, lty = 3)
+box(lwd = 2)
+
+points(scores(fish.team.db, display = "wa"),
+       pch = 10, cex = 1, bg = "gray", col = "gray")
+text(scores(fish.team.db, display = "wa"),
+     labels = row.names(scores(fish.team.db, display = "wa")), cex = 0.5)
+
+
+vectors <- scores(fish.team.db, display = "bp")
+arrows(0, 0, vectors[, 1], vectors[, 2],
+       lwd = 2, lty = 1, length = 0.2, col = "red")
+text(vectors[,1], vectors[,2], pos = 3,
+     label = row.names(vectors), col = "blue", cex = 1)
+axis(side = 3, lwd.ticks = 2, cex.axis = 1.2, las = 1, col = "red", lwd = 2.2,
+     at = pretty(range(vectors[, 1])) * 2, labels = pretty(range(vectors[,1])))
+
+axis(side = 4, lwd.ticks = 2, cex.axis = 1.2, las = 1, col = "red", lwd = 2.2,
+     at = pretty(range(vectors[, 2])) * 2, labels = pretty(range(vectors[,2])))
+
+```
+
+
